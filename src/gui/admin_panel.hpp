@@ -21,7 +21,9 @@ private slots:
     void onCreateUser();
     void onChangeRole();
     void onSetQuota();
+    void onDeleteUser();
     void onCreateUnit();
+    void onDeleteUnit();
 
 private:
     void refreshUserTable();

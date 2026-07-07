@@ -32,12 +32,15 @@ AdminPanel::AdminPanel(AppContext& app, const QString& userId, QWidget* parent)
     auto* createUserBtn = new QPushButton("Create User");
     auto* changeRoleBtn = new QPushButton("Change Role");
     auto* setQuotaBtn = new QPushButton("Set Quota");
+    auto* deleteUserBtn = new QPushButton("Delete User");
     connect(createUserBtn, &QPushButton::clicked, this, &AdminPanel::onCreateUser);
     connect(changeRoleBtn, &QPushButton::clicked, this, &AdminPanel::onChangeRole);
     connect(setQuotaBtn, &QPushButton::clicked, this, &AdminPanel::onSetQuota);
+    connect(deleteUserBtn, &QPushButton::clicked, this, &AdminPanel::onDeleteUser);
     userBtnLayout->addWidget(createUserBtn);
     userBtnLayout->addWidget(changeRoleBtn);
     userBtnLayout->addWidget(setQuotaBtn);
+    userBtnLayout->addWidget(deleteUserBtn);
     userBtnLayout->addStretch();
     userLayout->addLayout(userBtnLayout);
 
@@ -53,8 +56,11 @@ AdminPanel::AdminPanel(AppContext& app, const QString& userId, QWidget* parent)
 
     auto* unitBtnLayout = new QHBoxLayout();
     auto* createUnitBtn = new QPushButton("Create Unit");
+    auto* deleteUnitBtn = new QPushButton("Delete Unit");
     connect(createUnitBtn, &QPushButton::clicked, this, &AdminPanel::onCreateUnit);
+    connect(deleteUnitBtn, &QPushButton::clicked, this, &AdminPanel::onDeleteUnit);
     unitBtnLayout->addWidget(createUnitBtn);
+    unitBtnLayout->addWidget(deleteUnitBtn);
     unitBtnLayout->addStretch();
     unitLayout->addLayout(unitBtnLayout);
 
@@ -237,6 +243,54 @@ void AdminPanel::onSetQuota()
     }
 }
 
+void AdminPanel::onDeleteUser()
+{
+    int row = userTable_->currentRow();
+    if (row < 0) {
+        QMessageBox::warning(this, "Error", "Select a user first");
+        return;
+    }
+
+    QString targetUserId = userTable_->item(row, 0)->data(Qt::UserRole).toString();
+    QString username = userTable_->item(row, 0)->text();
+    if (targetUserId == userId_) {
+        QMessageBox::warning(this, "Error", "You cannot delete the current logged-in user");
+        return;
+    }
+
+    for (const auto& doc : app_.docRepo().findAll()) {
+        if (!doc.isDeleted && doc.ownerUserId == targetUserId.toStdString()) {
+            QMessageBox::warning(this, "Error",
+                "Cannot delete user because this user still owns documents. Delete or transfer those documents first.");
+            return;
+        }
+    }
+    for (const auto& share : app_.shareRepo().findByToUser(targetUserId.toStdString())) {
+        Q_UNUSED(share);
+        QMessageBox::warning(this, "Error",
+            "Cannot delete user because documents are still shared with this user. Revoke those shares first.");
+        return;
+    }
+    for (const auto& share : app_.shareRepo().findByFromUser(targetUserId.toStdString())) {
+        Q_UNUSED(share);
+        QMessageBox::warning(this, "Error",
+            "Cannot delete user because this user has shared documents. Revoke those shares first.");
+        return;
+    }
+
+    auto reply = QMessageBox::question(this, "Delete User",
+        "Delete user '" + username + "'?\nThis action cannot be undone.",
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    if (reply != QMessageBox::Yes) return;
+
+    if (app_.users().remove(targetUserId.toStdString())) {
+        QMessageBox::information(this, "Success", "User deleted");
+        refreshUserTable();
+    } else {
+        QMessageBox::warning(this, "Error", "Failed to delete user");
+    }
+}
+
 void AdminPanel::onCreateUnit()
 {
     bool ok = false;
@@ -269,6 +323,54 @@ void AdminPanel::onCreateUnit()
         refreshUnitTree();
     } else {
         QMessageBox::warning(this, "Error", "Failed to create unit");
+    }
+}
+
+void AdminPanel::onDeleteUnit()
+{
+    auto* item = unitTree_->currentItem();
+    if (!item) {
+        QMessageBox::warning(this, "Error", "Select a unit first");
+        return;
+    }
+
+    QString unitId = item->data(0, Qt::UserRole).toString();
+    QString unitName = item->text(0);
+    auto unit = app_.orgRepo().findById(unitId.toStdString());
+    if (!unit) {
+        QMessageBox::warning(this, "Error", "Unit not found");
+        return;
+    }
+    if (unit->parentUnitId.empty()) {
+        QMessageBox::warning(this, "Error", "Cannot delete root unit");
+        return;
+    }
+    if (!unit->childrenIds.empty()) {
+        QMessageBox::warning(this, "Error", "Cannot delete unit because it still has child units");
+        return;
+    }
+    if (!app_.userRepo().findByUnit(unitId.toStdString()).empty()) {
+        QMessageBox::warning(this, "Error", "Cannot delete unit because it still has users");
+        return;
+    }
+    for (const auto& doc : app_.docRepo().findByUnitScope(unitId.toStdString())) {
+        if (!doc.isDeleted) {
+            QMessageBox::warning(this, "Error", "Cannot delete unit because it still has unit-scoped documents");
+            return;
+        }
+    }
+
+    auto reply = QMessageBox::question(this, "Delete Unit",
+        "Delete unit '" + unitName + "'?\nThis action cannot be undone.",
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    if (reply != QMessageBox::Yes) return;
+
+    if (app_.orgRepo().remove(unitId.toStdString())) {
+        QMessageBox::information(this, "Success", "Unit deleted");
+        refreshUnitTree();
+        refreshUserTable();
+    } else {
+        QMessageBox::warning(this, "Error", "Failed to delete unit");
     }
 }
 
