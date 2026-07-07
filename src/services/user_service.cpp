@@ -22,7 +22,9 @@ std::string UserService::createUser(const std::string& username,
     }
 
     User u;
-    u.id = idGen_.next();
+    do {
+        u.id = idGen_.next();
+    } while (userRepo_.findById(u.id).has_value());
     u.username = username;
     u.passwordHash = simpleHash(password);
     u.role = role;

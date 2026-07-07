@@ -64,7 +64,9 @@ std::string DocumentService::uploadPersonal(const std::string& userId,
     }
 
     Document doc;
-    doc.id = idGen_.next();
+    do {
+        doc.id = idGen_.next();
+    } while (docRepo_.findById(doc.id).has_value());
     doc.ownerUserId = userId;
     doc.unitScopeId = "";
     doc.visibility = VisibilityType::Personal;
@@ -95,7 +97,9 @@ std::string DocumentService::uploadUnitPublic(const std::string& userId,
     if (title.empty()) throw std::invalid_argument("Title must not be empty");
 
     Document doc;
-    doc.id = idGen_.next();
+    do {
+        doc.id = idGen_.next();
+    } while (docRepo_.findById(doc.id).has_value());
     doc.ownerUserId = userId;
     doc.unitScopeId = unitId;
     doc.visibility = VisibilityType::UnitPublic;
