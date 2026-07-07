@@ -18,20 +18,13 @@ std::string OrgTreeService::createUnit(const std::string& name, const std::strin
     }
 
     OrgUnit unit;
-    unit.id = idGen_.next();
+    do {
+        unit.id = idGen_.next();
+    } while (exists(unit.id));
     unit.name = name;
     unit.parentUnitId = parentUnitId;
 
     repo_.save(unit);
-
-    // Cập nhật childrenIds của parent.
-    if (!parentUnitId.empty()) {
-        auto parentOpt = repo_.findById(parentUnitId);
-        if (parentOpt) {
-            parentOpt->childrenIds.push_back(unit.id);
-            repo_.save(*parentOpt);
-        }
-    }
     return unit.id;
 }
 
