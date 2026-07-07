@@ -1,0 +1,81 @@
+# Demo script cho bảo vệ project
+# Chạy: ./build/docmanager < demo_script.txt
+# Hoặc paste từng dòng vào CLI.
+# ID deterministic sau seed: unit_1..5, user_1..5, doc_1..2
+#   unit_1=HQ unit_2=DivisionA unit_3=DivisionB unit_4=TeamA1 unit_5=TeamA2
+#   user_1=admin user_2=leadA user_3=alice user_4=bob user_5=carol
+#   doc_1=DivisionA Policy (public) doc_2=Alice Notes (personal)
+
+# --- 1. Đăng nhập admin, xem cây đơn vị ---
+login admin admin123
+list-units
+
+# --- 2. Quản trị: tạo thêm đơn vị và người dùng ---
+create-unit TeamA3 unit_2
+list-users
+
+# --- 3. Đăng xuất, đăng nhập UnitAdmin leadA ---
+logout
+login leadA lead123
+whoami
+
+# --- 4. UnitAdmin upload tài liệu công khai DivisionA ---
+upload-unit-public unit_2 "Q3 OKR" "Mục tiêu Q3: hoàn thành hệ thống quản lý tài liệu phân cấp, đảm bảo phân quyền theo cây đơn vị."
+
+# --- 5. Đăng nhập alice (TeamA1, con của DivisionA) ---
+logout
+login alice alice123
+whoami
+list-unit-public
+explain-access doc_1
+read-doc doc_1
+
+# --- 6. Alice upload tài liệu cá nhân ---
+upload-personal "Alice Research" "Nghiên cứu về inverted index và cây tổ chức. Keywords: index, tree, permission, hierarchy."
+list-mine
+preview-doc doc_2 80
+
+# --- 7. Đánh dấu favorite ---
+favorite doc_2
+list-favorites
+
+# --- 8. Tìm kiếm ---
+search-title "Research"
+search-content "permission hierarchy"
+rebuild-index
+search-content "inverted index"
+
+# --- 9. Chia sẻ cho bob ---
+share doc_2 user_4 READ
+shared-by-me
+
+# --- 10. Đăng nhập bob (TeamA2, cũng con DivisionA) ---
+logout
+login bob bob123
+whoami
+list-unit-public
+shared-with-me
+read-doc doc_2
+explain-access doc_2
+
+# --- 11. Bob cố sửa tài liệu chỉ READ-share -> bị từ chối ---
+edit-doc doc_2 "Bob edit" "noi dung moi"
+
+# --- 12. Carol (DivisionB, KHÔNG thuộc subtree DivisionA) ---
+logout
+login carol carol123
+whoami
+list-unit-public
+read-doc doc_1
+explain-access doc_1
+
+# --- 13. Quota ---
+quota
+upload-personal "big file" "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+quota
+
+# --- 14. SysAdmin xem tất cả ---
+logout
+login admin admin123
+list-users
+quota user_3

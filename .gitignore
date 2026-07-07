@@ -1,0 +1,25 @@
+# Build directory
+build/
+
+# Database files
+*.db
+*.db-wal
+*.db-shm
+
+# IDE
+.vscode/
+.idea/
+
+# Qt generated files
+*.moc
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Temporary files
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
